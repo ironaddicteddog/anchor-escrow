@@ -1,0 +1,20 @@
+[package]
+description = "Anchor Escrow"
+edition = "2018"
+name = "escrow"
+version = "0.1.0"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "escrow"
+
+[features]
+cpi = ["no-entrypoint"]
+default = []
+no-entrypoint = []
+no-idl = []
+
+[dependencies]
+anchor-lang = {version = "0.17.0"}
+anchor-spl = {version = "0.17.0"}
+spl-token = {version = "3.1.1", features = ["no-entrypoint"]}
