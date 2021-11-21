@@ -120,7 +120,7 @@ pub struct Initialize<'info> {
     pub initializer_deposit_token_account: Account<'info, TokenAccount>,
     pub initializer_receive_token_account: Account<'info, TokenAccount>,
     #[account(zero)]
-    pub escrow_account: ProgramAccount<'info, EscrowAccount>,
+    pub escrow_account: Box<Account<'info, EscrowAccount>>,
     pub system_program: AccountInfo<'info>,
     pub rent: Sysvar<'info, Rent>,
     pub token_program: AccountInfo<'info>,
@@ -141,7 +141,7 @@ pub struct Cancel<'info> {
         constraint = escrow_account.initializer_deposit_token_account == *initializer_deposit_token_account.to_account_info().key,
         close = initializer
     )]
-    pub escrow_account: ProgramAccount<'info, EscrowAccount>,
+    pub escrow_account: Box<Account<'info, EscrowAccount>>,
     pub token_program: AccountInfo<'info>,
 }
 
@@ -167,7 +167,7 @@ pub struct Exchange<'info> {
         constraint = escrow_account.initializer_key == *initializer.key,
         close = initializer
     )]
-    pub escrow_account: ProgramAccount<'info, EscrowAccount>,
+    pub escrow_account: Box<Account<'info, EscrowAccount>>,
     #[account(mut)]
     pub vault_account: Account<'info, TokenAccount>,
     pub vault_authority: AccountInfo<'info>,
