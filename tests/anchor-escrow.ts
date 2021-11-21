@@ -1,17 +1,17 @@
-import * as anchor from "@project-serum/anchor";
-import {
-	PublicKey,
-	SystemProgram,
-  Transaction,
-} from '@solana/web3.js';
+import * as anchor from '@project-serum/anchor';
+import { Program } from '@project-serum/anchor';
+import { AnchorEscrow } from '../target/types/anchor_escrow';
+import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, Token } from "@solana/spl-token";
 import { assert } from "chai";
 
-describe("escrow", () => {
+describe('anchor-escrow', () => {
+
+  // Configure the client to use the local cluster.
   const provider = anchor.Provider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.Escrow;
+  const program = anchor.workspace.AnchorEscrow as Program<AnchorEscrow>;
 
   let mintA = null;
   let mintB = null;
@@ -32,7 +32,7 @@ describe("escrow", () => {
   const initializerMainAccount = anchor.web3.Keypair.generate();
   const takerMainAccount = anchor.web3.Keypair.generate();
 
-  it("Initialise escrow state", async () => {
+  it("Initialize program state", async () => {
     // Airdropping tokens to a payer.
     await provider.connection.confirmTransaction(
       await provider.connection.requestAirdrop(payer.publicKey, 10000000000),
@@ -119,7 +119,7 @@ describe("escrow", () => {
     );
     vault_authority_pda = _vault_authority_pda;
 
-    await program.rpc.initializeEscrow(
+    await program.rpc.initialize(
       vault_account_bump,
       new anchor.BN(initializerAmount),
       new anchor.BN(takerAmount),
@@ -163,7 +163,7 @@ describe("escrow", () => {
     );
   });
 
-  it("Exchange escrow", async () => {
+  it("Exchange escrow state", async () => {
     await program.rpc.exchange({
       accounts: {
         taker: takerMainAccount.publicKey,
@@ -185,8 +185,6 @@ describe("escrow", () => {
     let _initializerTokenAccountA = await mintA.getAccountInfo(initializerTokenAccountA);
     let _initializerTokenAccountB = await mintB.getAccountInfo(initializerTokenAccountB);
 
-    // TODO: Assert if the PDA token account is closed
-
     assert.ok(_takerTokenAccountA.amount.toNumber() == initializerAmount);
     assert.ok(_initializerTokenAccountA.amount.toNumber() == 0);
     assert.ok(_initializerTokenAccountB.amount.toNumber() == takerAmount);
@@ -202,7 +200,7 @@ describe("escrow", () => {
       initializerAmount
     );
 
-    await program.rpc.initializeEscrow(
+    await program.rpc.initialize(
       vault_account_bump,
       new anchor.BN(initializerAmount),
       new anchor.BN(takerAmount),
@@ -226,7 +224,7 @@ describe("escrow", () => {
     );
 
     // Cancel the escrow.
-    await program.rpc.cancelEscrow({
+    await program.rpc.cancel({
       accounts: {
         initializer: initializerMainAccount.publicKey,
         initializerDepositTokenAccount: initializerTokenAccountA,
@@ -237,8 +235,6 @@ describe("escrow", () => {
       },
       signers: [initializerMainAccount]
     });
-
-    // TODO: Assert if the PDA token account is closed
 
     // Check the final owner should be the provider public key.
     const _initializerTokenAccountA = await mintA.getAccountInfo(initializerTokenAccountA);

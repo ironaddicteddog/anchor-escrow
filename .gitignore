@@ -1,7 +1,8 @@
-target
 .anchor
+.DS_Store
+target
+**/*.rs.bk
 node_modules
-test_ledger
 Cargo.lock
 package-lock.json
-.DS_Store
+test-ledger

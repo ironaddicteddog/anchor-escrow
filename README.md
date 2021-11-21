@@ -1,6 +1,6 @@
 # Anchor Example: Escrow Program
 
-- See this [doc](https://hackmd.io/@ironaddicteddog/anchor_example_escrow) for more implementation details
+- See this [doc](https://hackmd.io/@ironaddicteddog/solana-anchor-escrow) for more implementation details
 
 ## Overview
 
