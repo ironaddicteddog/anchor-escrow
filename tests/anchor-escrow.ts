@@ -1,20 +1,24 @@
 import * as anchor from '@project-serum/anchor';
 import { Program } from '@project-serum/anchor';
+import { NodeWallet } from '@project-serum/anchor/dist/cjs/provider';
 import { AnchorEscrow } from '../target/types/anchor_escrow';
-import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction, Connection, Commitment } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, Token } from "@solana/spl-token";
 import { assert } from "chai";
 
 describe('anchor-escrow', () => {
+  const commitment: Commitment = 'processed';
+  const connection = new Connection('https://rpc-mainnet-fork.dappio.xyz', { commitment, wsEndpoint: 'wss://rpc-mainnet-fork.dappio.xyz/ws' });
+  const options = anchor.Provider.defaultOptions();
+  const wallet = NodeWallet.local();
+  const provider = new anchor.Provider(connection, wallet, options);
 
-  // Configure the client to use the local cluster.
-  const provider = anchor.Provider.env();
   anchor.setProvider(provider);
 
   const program = anchor.workspace.AnchorEscrow as Program<AnchorEscrow>;
 
-  let mintA = null;
-  let mintB = null;
+  let mintA = null as Token;
+  let mintB = null as Token;
   let initializerTokenAccountA = null;
   let initializerTokenAccountB = null;
   let takerTokenAccountA = null;
@@ -36,7 +40,7 @@ describe('anchor-escrow', () => {
     // Airdropping tokens to a payer.
     await provider.connection.confirmTransaction(
       await provider.connection.requestAirdrop(payer.publicKey, 10000000000),
-      "confirmed"
+      "processed"
     );
 
     // Fund Main Accounts

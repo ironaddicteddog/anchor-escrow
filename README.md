@@ -33,37 +33,32 @@ Let's run the test once to see what happens.
 First, install dependencies:
 
 ```
-$ npm install
-
-$ npm install -g mocha
+$ yarn
 ```
-
-Make sure you have your local solana validator running if you want to deploy the program locally:
-
-```
-$ solana-test-validator
-```
-
-> If you are on Apple Sillicon M1 chip, you will have to build Solana from the source. See [this document](https://docs.solana.com/cli/install-solana-cli-tools#build-from-source) for more details
 
 Next, we will build and deploy the program via Anchor.
 
-First, let's build the program:
+Build the program:
 
 ```
 $ anchor build
 ```
 
-Deploy the program:
+Let's deploy the program. Notice that `anchor-escrow` will be deployed on a [mainnet-fork](https://github.com/DappioWonderland/solana) test validator run by Dappio:
 
 ```
 $ anchor deploy
+...
+
+Program Id: AGtT2X117M7Lx1PeXQrknorvwApEdBSUsAiYA2R2QESd
+
+Deploy success
 ```
+
+Here, make sure you update your program ID in `Anchor.toml` and `lib.rs`.
 
 Finally, run the test:
 
 ```
-$ anchor test
+$ anchor test --skip-build --skip-deploy
 ```
-
-> Make sure to terminate the `solana-test-validator` before you run the `test` command
