@@ -38,6 +38,15 @@ $ yarn
 
 Next, we will build and deploy the program via Anchor.
 
+Get the program ID:
+
+```
+$ anchor keys list
+anchor_escrow: AGtT2X117M7Lx1PeXQrknorvwApEdBSUsAiYA2R2QESd
+```
+
+Here, make sure you update your program ID in `Anchor.toml` and `lib.rs`.
+
 Build the program:
 
 ```
@@ -54,8 +63,6 @@ Program Id: AGtT2X117M7Lx1PeXQrknorvwApEdBSUsAiYA2R2QESd
 
 Deploy success
 ```
-
-Here, make sure you update your program ID in `Anchor.toml` and `lib.rs`.
 
 Finally, run the test:
 
