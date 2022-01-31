@@ -56,6 +56,16 @@ $ anchor build
 Let's deploy the program. Notice that `anchor-escrow` will be deployed on a [mainnet-fork](https://github.com/DappioWonderland/solana) test validator run by Dappio:
 
 ```
+$ solana config set --url https://rpc-mainnet-fork.dappio.xyz
+...
+```
+
+```
+$ solana config set --ws wss://rpc-mainnet-fork.dappio.xyz/ws
+...
+```
+
+```
 $ anchor deploy
 ...
 
