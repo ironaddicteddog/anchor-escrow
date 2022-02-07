@@ -1,6 +1,6 @@
 import * as anchor from '@project-serum/anchor';
 import { Program } from '@project-serum/anchor';
-import { NodeWallet } from '@project-serum/anchor/dist/cjs/provider';
+import NodeWallet from '@project-serum/anchor/dist/cjs/nodewallet';
 import { AnchorEscrow } from '../target/types/anchor_escrow';
 import { PublicKey, SystemProgram, Transaction, Connection, Commitment } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, Token } from "@solana/spl-token";
