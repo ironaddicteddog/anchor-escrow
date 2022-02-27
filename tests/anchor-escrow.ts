@@ -39,7 +39,7 @@ describe('anchor-escrow', () => {
   it("Initialize program state", async () => {
     // Airdropping tokens to a payer.
     await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(payer.publicKey, 10000000000),
+      await provider.connection.requestAirdrop(payer.publicKey, 1000000000),
       "processed"
     );
 
@@ -51,12 +51,12 @@ describe('anchor-escrow', () => {
           SystemProgram.transfer({
             fromPubkey: payer.publicKey,
             toPubkey: initializerMainAccount.publicKey,
-            lamports: 1000000000,
+            lamports: 100000000,
           }),
           SystemProgram.transfer({
             fromPubkey: payer.publicKey,
             toPubkey: takerMainAccount.publicKey,
-            lamports: 1000000000,
+            lamports: 100000000,
           })
         );
         return tx;
