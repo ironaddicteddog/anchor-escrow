@@ -15,6 +15,6 @@ no-entrypoint = []
 no-idl = []
 
 [dependencies]
-anchor-lang = "0.24.0"
-anchor-spl = {version = "0.24.0"}
+anchor-lang = "0.24.2"
+anchor-spl = {version = "0.24.2"}
 spl-token = {version = "3.3.0", features = ["no-entrypoint"]}
