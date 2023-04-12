@@ -9,7 +9,6 @@ pub mod anchor_escrow {
     use super::*;
 
     const AUTHORITY_SEED: &[u8] = b"authority";
-    const DECIMAL: u8 = 0;
 
     pub fn initialize(
         ctx: Context<Initialize>,
@@ -39,7 +38,7 @@ pub mod anchor_escrow {
         token::transfer_checked(
             ctx.accounts.into_transfer_to_pda_context(),
             ctx.accounts.escrow_state.initializer_amount,
-            DECIMAL,
+            ctx.accounts.mint.decimals,
         )?;
 
         Ok(())
@@ -56,7 +55,7 @@ pub mod anchor_escrow {
                 .into_transfer_to_initializer_context()
                 .with_signer(&[&authority_seeds[..]]),
             ctx.accounts.escrow_state.initializer_amount,
-            DECIMAL,
+            ctx.accounts.mint.decimals,
         )?;
 
         token::close_account(
@@ -77,7 +76,7 @@ pub mod anchor_escrow {
         token::transfer_checked(
             ctx.accounts.into_transfer_to_initializer_context(),
             ctx.accounts.escrow_state.taker_amount,
-            DECIMAL,
+            ctx.accounts.taker_deposit_token_mint.decimals,
         )?;
 
         token::transfer_checked(
@@ -85,7 +84,7 @@ pub mod anchor_escrow {
                 .into_transfer_to_taker_context()
                 .with_signer(&[&authority_seeds[..]]),
             ctx.accounts.escrow_state.initializer_amount,
-            DECIMAL,
+            ctx.accounts.initializer_deposit_token_mint.decimals,
         )?;
 
         token::close_account(
