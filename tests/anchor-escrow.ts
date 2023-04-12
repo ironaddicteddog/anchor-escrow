@@ -1,7 +1,14 @@
 import * as anchor from "@coral-xyz/anchor";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { IDL } from "../target/types/anchor_escrow";
-import { PublicKey, SystemProgram, Transaction, Connection, Commitment } from "@solana/web3.js";
+import {
+  PublicKey,
+  SystemProgram,
+  Connection,
+  Commitment,
+  TransactionMessage,
+  VersionedTransaction,
+} from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, createMint, createAccount, mintTo, getAccount } from "@solana/spl-token";
 import { assert } from "chai";
 
@@ -59,12 +66,12 @@ describe("anchor-escrow", () => {
   )[0];
 
   const vaultKey = PublicKey.findProgramAddressSync(
-    [Buffer.from(anchor.utils.bytes.utf8.encode(vaultSeed)), randomSeed.toArrayLike(Buffer, "le", 8)],
+    [Buffer.from(vaultSeed, "utf-8"), randomSeed.toArrayLike(Buffer, "le", 8)],
     program.programId
   )[0];
 
   const vaultAuthorityKey = PublicKey.findProgramAddressSync(
-    [Buffer.from(anchor.utils.bytes.utf8.encode(authoritySeed))],
+    [Buffer.from(authoritySeed, "utf-8")],
     program.programId
   )[0];
 
@@ -81,21 +88,28 @@ describe("anchor-escrow", () => {
     );
 
     // 2. Fund main roles: initializer and taker
-    const fundingTx = new Transaction();
-    fundingTx.add(
-      SystemProgram.transfer({
-        fromPubkey: payer.publicKey,
-        toPubkey: initializer.publicKey,
-        lamports: 100000000,
-      }),
-      SystemProgram.transfer({
-        fromPubkey: payer.publicKey,
-        toPubkey: taker.publicKey,
-        lamports: 100000000,
-      })
-    );
+    const fundingTxMessageV0 = new TransactionMessage({
+      payerKey: payer.publicKey,
+      recentBlockhash: latestBlockhash.blockhash,
+      instructions: [
+        SystemProgram.transfer({
+          fromPubkey: payer.publicKey,
+          toPubkey: initializer.publicKey,
+          lamports: 100000000,
+        }),
+        SystemProgram.transfer({
+          fromPubkey: payer.publicKey,
+          toPubkey: taker.publicKey,
+          lamports: 100000000,
+        }),
+      ],
+    }).compileToV0Message();
+    const fundingTx = new VersionedTransaction(fundingTxMessageV0);
+    fundingTx.sign([payer]);
 
-    await provider.sendAndConfirm(fundingTx, [payer]);
+    // console.log(Buffer.from(fundingTx.serialize()).toString("base64"));
+    const result = await connection.sendRawTransaction(fundingTx.serialize());
+    console.log(`https://solana.fm/tx/${result}?cluster=http%253A%252F%252Flocalhost%253A8899%252F`);
 
     // 3. Create dummy token mints: mintA and mintB
     mintA = await createMint(connection, payer, mintAuthority.publicKey, null, 0);
@@ -119,7 +133,7 @@ describe("anchor-escrow", () => {
   });
 
   it("Initialize escrow", async () => {
-    await program.methods
+    const result = await program.methods
       .initialize(randomSeed, new anchor.BN(initializerAmount), new anchor.BN(takerAmount))
       .accounts({
         initializer: initializer.publicKey,
@@ -134,6 +148,7 @@ describe("anchor-escrow", () => {
       })
       .signers([initializer])
       .rpc();
+    console.log(`https://solana.fm/tx/${result}?cluster=http%253A%252F%252Flocalhost%253A8899%252F`);
 
     let fetchedVault = await getAccount(connection, vaultKey);
     let fetchedEscrowState = await program.account.escrowState.fetch(escrowStateKey);
@@ -150,7 +165,7 @@ describe("anchor-escrow", () => {
   });
 
   it("Exchange escrow state", async () => {
-    await program.methods
+    const result = await program.methods
       .exchange()
       .accounts({
         taker: taker.publicKey,
@@ -166,6 +181,7 @@ describe("anchor-escrow", () => {
       })
       .signers([taker])
       .rpc();
+    console.log(`https://solana.fm/tx/${result}?cluster=http%253A%252F%252Flocalhost%253A8899%252F`);
 
     let fetchedInitializerTokenAccountA = await getAccount(connection, initializerTokenAccountA);
     let fetchedInitializerTokenAccountB = await getAccount(connection, initializerTokenAccountB);
@@ -183,7 +199,7 @@ describe("anchor-escrow", () => {
 
     await mintTo(connection, initializer, mintA, initializerTokenAccountA, mintAuthority, initializerAmount);
 
-    await program.methods
+    const initializedTx = await program.methods
       .initialize(randomSeed, new anchor.BN(initializerAmount), new anchor.BN(takerAmount))
       .accounts({
         initializer: initializer.publicKey,
@@ -198,9 +214,10 @@ describe("anchor-escrow", () => {
       })
       .signers([initializer])
       .rpc();
+    console.log(`https://solana.fm/tx/${initializedTx}?cluster=http%253A%252F%252Flocalhost%253A8899%252F`);
 
     // Cancel the escrow.
-    await program.methods
+    const canceledTX = await program.methods
       .cancel()
       .accounts({
         initializer: initializer.publicKey,
@@ -212,6 +229,7 @@ describe("anchor-escrow", () => {
       })
       .signers([initializer])
       .rpc();
+    console.log(`https://solana.fm/tx/${canceledTX}?cluster=http%253A%252F%252Flocalhost%253A8899%252F`);
 
     // Check the final owner should be the provider public key.
     const fetchedInitializerTokenAccountA = await getAccount(connection, initializerTokenAccountA);
