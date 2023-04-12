@@ -1,8 +1,6 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{
-    self, spl_token::instruction::AuthorityType, CloseAccount, Mint, SetAuthority, Token,
-    TokenAccount, TransferChecked,
-};
+use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token::{self, CloseAccount, Mint, Token, TokenAccount, TransferChecked};
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -34,15 +32,9 @@ pub mod anchor_escrow {
         ctx.accounts.escrow_state.taker_amount = taker_amount;
         ctx.accounts.escrow_state.random_seed = random_seed;
 
-        let (vault_authority, vault_authority_bump) =
+        let (_vault_authority, vault_authority_bump) =
             Pubkey::find_program_address(&[AUTHORITY_SEED], ctx.program_id);
         ctx.accounts.escrow_state.vault_authority_bump = vault_authority_bump;
-
-        token::set_authority(
-            ctx.accounts.into_set_authority_context(),
-            AuthorityType::AccountOwner,
-            Some(vault_authority),
-        )?;
 
         token::transfer_checked(
             ctx.accounts.into_transfer_to_pda_context(),
@@ -113,15 +105,19 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub initializer: Signer<'info>,
     pub mint: Account<'info, Mint>,
+    /// CHECK: This is not dangerous because we don't read or write from this account
+    #[account(
+        seeds = [b"authority".as_ref()],
+        bump,
+    )]
+    pub vault_authority: AccountInfo<'info>,
     #[account(
         init,
-        seeds = [b"vault".as_ref(), &escrow_seed.to_le_bytes()],
-        bump,
         payer = initializer,
-        token::mint = mint,
-        token::authority = initializer,
+        associated_token::mint = mint,
+        associated_token::authority = vault_authority
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: Box<Account<'info, TokenAccount>>,
     #[account(
         mut,
         constraint = initializer_deposit_token_account.amount >= initializer_amount
@@ -141,6 +137,8 @@ pub struct Initialize<'info> {
     pub rent: Sysvar<'info, Rent>,
     /// CHECK: This is not dangerous because we don't read or write from this account
     pub token_program: Program<'info, Token>,
+    /// CHECK: This is not dangerous because we don't read or write from this account
+    pub associated_token_program: Program<'info, AssociatedToken>,
 }
 
 #[derive(Accounts)]
@@ -152,6 +150,10 @@ pub struct Cancel<'info> {
     #[account(mut)]
     pub vault: Account<'info, TokenAccount>,
     /// CHECK: This is not dangerous because we don't read or write from this account
+    #[account(
+        seeds = [b"authority".as_ref()],
+        bump,
+    )]
     pub vault_authority: AccountInfo<'info>,
     #[account(mut)]
     pub initializer_deposit_token_account: Account<'info, TokenAccount>,
@@ -195,6 +197,10 @@ pub struct Exchange<'info> {
     #[account(mut)]
     pub vault: Box<Account<'info, TokenAccount>>,
     /// CHECK: This is not dangerous because we don't read or write from this account
+    #[account(
+        seeds = [b"authority".as_ref()],
+        bump,
+    )]
     pub vault_authority: AccountInfo<'info>,
     /// CHECK: This is not dangerous because we don't read or write from this account
     pub token_program: Program<'info, Token>,
@@ -226,14 +232,6 @@ impl<'info> Initialize<'info> {
             mint: self.mint.to_account_info(),
             to: self.vault.to_account_info(),
             authority: self.initializer.to_account_info(),
-        };
-        CpiContext::new(self.token_program.to_account_info(), cpi_accounts)
-    }
-
-    fn into_set_authority_context(&self) -> CpiContext<'_, '_, '_, 'info, SetAuthority<'info>> {
-        let cpi_accounts = SetAuthority {
-            account_or_mint: self.vault.to_account_info(),
-            current_authority: self.initializer.to_account_info(),
         };
         CpiContext::new(self.token_program.to_account_info(), cpi_accounts)
     }

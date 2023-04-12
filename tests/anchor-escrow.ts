@@ -9,7 +9,14 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, createMint, createAccount, mintTo, getAccount } from "@solana/spl-token";
+import {
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  createMint,
+  createAccount,
+  mintTo,
+  getAccount,
+} from "@solana/spl-token";
 import { assert } from "chai";
 
 describe("anchor-escrow", () => {
@@ -53,7 +60,6 @@ describe("anchor-escrow", () => {
 
   // Determined Seeds
   const stateSeed = "state";
-  const vaultSeed = "vault";
   const authoritySeed = "authority";
 
   // Random Seed
@@ -65,15 +71,11 @@ describe("anchor-escrow", () => {
     program.programId
   )[0];
 
-  const vaultKey = PublicKey.findProgramAddressSync(
-    [Buffer.from(vaultSeed, "utf-8"), randomSeed.toArrayLike(Buffer, "le", 8)],
-    program.programId
-  )[0];
-
   const vaultAuthorityKey = PublicKey.findProgramAddressSync(
     [Buffer.from(authoritySeed, "utf-8")],
     program.programId
   )[0];
+  let vaultKey = null as PublicKey;
 
   it("Initialize program state", async () => {
     // 1. Airdrop 1 SOL to payer
@@ -133,10 +135,17 @@ describe("anchor-escrow", () => {
   });
 
   it("Initialize escrow", async () => {
+    const _vaultKey = PublicKey.findProgramAddressSync(
+      [vaultAuthorityKey.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mintA.toBuffer()],
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    )[0];
+    vaultKey = _vaultKey;
+
     const result = await program.methods
       .initialize(randomSeed, new anchor.BN(initializerAmount), new anchor.BN(takerAmount))
       .accounts({
         initializer: initializer.publicKey,
+        vaultAuthority: vaultAuthorityKey,
         vault: vaultKey,
         mint: mintA,
         initializerDepositTokenAccount: initializerTokenAccountA,
@@ -169,6 +178,8 @@ describe("anchor-escrow", () => {
       .exchange()
       .accounts({
         taker: taker.publicKey,
+        initializerDepositTokenMint: mintA,
+        takerDepositTokenMint: mintB,
         takerDepositTokenAccount: takerTokenAccountB,
         takerReceiveTokenAccount: takerTokenAccountA,
         initializerDepositTokenAccount: initializerTokenAccountA,
@@ -196,13 +207,13 @@ describe("anchor-escrow", () => {
 
   it("Initialize escrow and cancel escrow", async () => {
     // Put back tokens into initializer token A account.
-
     await mintTo(connection, initializer, mintA, initializerTokenAccountA, mintAuthority, initializerAmount);
 
     const initializedTx = await program.methods
       .initialize(randomSeed, new anchor.BN(initializerAmount), new anchor.BN(takerAmount))
       .accounts({
         initializer: initializer.publicKey,
+        vaultAuthority: vaultAuthorityKey,
         vault: vaultKey,
         mint: mintA,
         initializerDepositTokenAccount: initializerTokenAccountA,
@@ -221,6 +232,7 @@ describe("anchor-escrow", () => {
       .cancel()
       .accounts({
         initializer: initializer.publicKey,
+        mint: mintA,
         initializerDepositTokenAccount: initializerTokenAccountA,
         vault: vaultKey,
         vaultAuthority: vaultAuthorityKey,
