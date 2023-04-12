@@ -1,5 +1,5 @@
-import * as anchor from "@project-serum/anchor";
-import NodeWallet from "@project-serum/anchor/dist/cjs/nodewallet";
+import * as anchor from "@coral-xyz/anchor";
+import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { IDL } from "../target/types/anchor_escrow";
 import { PublicKey, SystemProgram, Transaction, Connection, Commitment } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, createMint, createAccount, mintTo, getAccount } from "@solana/spl-token";
@@ -7,20 +7,25 @@ import { assert } from "chai";
 
 describe("anchor-escrow", () => {
   // Use Mainnet-fork for testing
-  const commitment: Commitment = "confirmed";
-  const connection = new Connection("https://rpc-mainnet-fork.epochs.studio", {
+  const commitment: Commitment = "processed"; // processed, confirmed, finalized
+  const connection = new Connection("http://localhost:8899", {
     commitment,
-    wsEndpoint: "wss://rpc-mainnet-fork.epochs.studio/ws",
+    wsEndpoint: "ws://localhost:8900/",
   });
+  // const connection = new Connection("https://api.devnet.solana.com", {
+  //   commitment,
+  //   wsEndpoint: "wss://api.devnet.solana.com/",
+  // });
+
   const options = anchor.AnchorProvider.defaultOptions();
   const wallet = NodeWallet.local();
   const provider = new anchor.AnchorProvider(connection, wallet, options);
 
   anchor.setProvider(provider);
 
-  // CAUTTION: if you are intended to use the program that is deployed by yourself,
+  // CAUTION: if you are intended to use the program that is deployed by yourself,
   // please make sure that the programIDs are consistent
-  const programId = new PublicKey("GW65RiuuG2zU27S39FW83Yug1t13RxWWwHSCWRwSaybC");
+  const programId = new PublicKey("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
   const program = new anchor.Program(IDL, programId, provider);
 
   let mintA = null as PublicKey;
