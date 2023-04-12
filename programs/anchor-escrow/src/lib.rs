@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{
     self, spl_token::instruction::AuthorityType, CloseAccount, Mint, SetAuthority, Token,
-    TokenAccount, Transfer,
+    TokenAccount, TransferChecked,
 };
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
@@ -11,6 +11,7 @@ pub mod anchor_escrow {
     use super::*;
 
     const AUTHORITY_SEED: &[u8] = b"authority";
+    const DECIMAL: u8 = 0;
 
     pub fn initialize(
         ctx: Context<Initialize>,
@@ -42,9 +43,10 @@ pub mod anchor_escrow {
             Some(vault_authority),
         )?;
 
-        token::transfer(
+        token::transfer_checked(
             ctx.accounts.into_transfer_to_pda_context(),
             ctx.accounts.escrow_state.initializer_amount,
+            DECIMAL,
         )?;
 
         Ok(())
@@ -55,11 +57,12 @@ pub mod anchor_escrow {
             Pubkey::find_program_address(&[AUTHORITY_SEED], ctx.program_id);
         let authority_seeds = &[&AUTHORITY_SEED[..], &[vault_authority_bump]];
 
-        token::transfer(
+        token::transfer_checked(
             ctx.accounts
                 .into_transfer_to_initializer_context()
                 .with_signer(&[&authority_seeds[..]]),
             ctx.accounts.escrow_state.initializer_amount,
+            DECIMAL,
         )?;
 
         token::close_account(
@@ -76,16 +79,18 @@ pub mod anchor_escrow {
             Pubkey::find_program_address(&[AUTHORITY_SEED], ctx.program_id);
         let authority_seeds = &[&AUTHORITY_SEED[..], &[vault_authority_bump]];
 
-        token::transfer(
+        token::transfer_checked(
             ctx.accounts.into_transfer_to_initializer_context(),
             ctx.accounts.escrow_state.taker_amount,
+            DECIMAL,
         )?;
 
-        token::transfer(
+        token::transfer_checked(
             ctx.accounts
                 .into_transfer_to_taker_context()
                 .with_signer(&[&authority_seeds[..]]),
             ctx.accounts.escrow_state.initializer_amount,
+            DECIMAL,
         )?;
 
         token::close_account(
@@ -140,6 +145,7 @@ pub struct Cancel<'info> {
     /// CHECK: This is not dangerous because we don't read or write from this account
     #[account(mut)]
     pub initializer: Signer<'info>,
+    pub mint: Account<'info, Mint>,
     #[account(mut)]
     pub vault: Account<'info, TokenAccount>,
     /// CHECK: This is not dangerous because we don't read or write from this account
@@ -161,6 +167,8 @@ pub struct Cancel<'info> {
 pub struct Exchange<'info> {
     /// CHECK: This is not dangerous because we don't read or write from this account
     pub taker: Signer<'info>,
+    pub initializer_deposit_token_mint: Account<'info, Mint>,
+    pub taker_deposit_token_mint: Account<'info, Mint>,
     #[account(mut)]
     pub taker_deposit_token_account: Box<Account<'info, TokenAccount>>,
     #[account(mut)]
@@ -206,9 +214,12 @@ impl EscrowState {
 }
 
 impl<'info> Initialize<'info> {
-    fn into_transfer_to_pda_context(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
-        let cpi_accounts = Transfer {
+    fn into_transfer_to_pda_context(
+        &self,
+    ) -> CpiContext<'_, '_, '_, 'info, TransferChecked<'info>> {
+        let cpi_accounts = TransferChecked {
             from: self.initializer_deposit_token_account.to_account_info(),
+            mint: self.mint.to_account_info(),
             to: self.vault.to_account_info(),
             authority: self.initializer.to_account_info(),
         };
@@ -227,9 +238,10 @@ impl<'info> Initialize<'info> {
 impl<'info> Cancel<'info> {
     fn into_transfer_to_initializer_context(
         &self,
-    ) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
-        let cpi_accounts = Transfer {
+    ) -> CpiContext<'_, '_, '_, 'info, TransferChecked<'info>> {
+        let cpi_accounts = TransferChecked {
             from: self.vault.to_account_info(),
+            mint: self.mint.to_account_info(),
             to: self.initializer_deposit_token_account.to_account_info(),
             authority: self.vault_authority.clone(),
         };
@@ -249,18 +261,22 @@ impl<'info> Cancel<'info> {
 impl<'info> Exchange<'info> {
     fn into_transfer_to_initializer_context(
         &self,
-    ) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
-        let cpi_accounts = Transfer {
+    ) -> CpiContext<'_, '_, '_, 'info, TransferChecked<'info>> {
+        let cpi_accounts = TransferChecked {
             from: self.taker_deposit_token_account.to_account_info(),
+            mint: self.taker_deposit_token_mint.to_account_info(),
             to: self.initializer_receive_token_account.to_account_info(),
             authority: self.taker.to_account_info(),
         };
         CpiContext::new(self.token_program.to_account_info(), cpi_accounts)
     }
 
-    fn into_transfer_to_taker_context(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
-        let cpi_accounts = Transfer {
+    fn into_transfer_to_taker_context(
+        &self,
+    ) -> CpiContext<'_, '_, '_, 'info, TransferChecked<'info>> {
+        let cpi_accounts = TransferChecked {
             from: self.vault.to_account_info(),
+            mint: self.initializer_deposit_token_mint.to_account_info(),
             to: self.taker_receive_token_account.to_account_info(),
             authority: self.vault_authority.clone(),
         };
