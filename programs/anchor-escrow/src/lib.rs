@@ -34,8 +34,9 @@ pub mod anchor_escrow {
         ctx.accounts.escrow_state.taker_amount = taker_amount;
         ctx.accounts.escrow_state.random_seed = random_seed;
 
-        let (vault_authority, _vault_authority_bump) =
+        let (vault_authority, vault_authority_bump) =
             Pubkey::find_program_address(&[AUTHORITY_SEED], ctx.program_id);
+        ctx.accounts.escrow_state.vault_authority_bump = vault_authority_bump;
 
         token::set_authority(
             ctx.accounts.into_set_authority_context(),
@@ -53,9 +54,10 @@ pub mod anchor_escrow {
     }
 
     pub fn cancel(ctx: Context<Cancel>) -> Result<()> {
-        let (_vault_authority, vault_authority_bump) =
-            Pubkey::find_program_address(&[AUTHORITY_SEED], ctx.program_id);
-        let authority_seeds = &[&AUTHORITY_SEED[..], &[vault_authority_bump]];
+        let authority_seeds = &[
+            &AUTHORITY_SEED[..],
+            &[ctx.accounts.escrow_state.vault_authority_bump],
+        ];
 
         token::transfer_checked(
             ctx.accounts
@@ -75,9 +77,10 @@ pub mod anchor_escrow {
     }
 
     pub fn exchange(ctx: Context<Exchange>) -> Result<()> {
-        let (_vault_authority, vault_authority_bump) =
-            Pubkey::find_program_address(&[AUTHORITY_SEED], ctx.program_id);
-        let authority_seeds = &[&AUTHORITY_SEED[..], &[vault_authority_bump]];
+        let authority_seeds = &[
+            &AUTHORITY_SEED[..],
+            &[ctx.accounts.escrow_state.vault_authority_bump],
+        ];
 
         token::transfer_checked(
             ctx.accounts.into_transfer_to_initializer_context(),
@@ -205,11 +208,12 @@ pub struct EscrowState {
     pub initializer_receive_token_account: Pubkey,
     pub initializer_amount: u64,
     pub taker_amount: u64,
+    pub vault_authority_bump: u8,
 }
 
 impl EscrowState {
     pub fn space() -> usize {
-        8 + 120
+        8 + 121
     }
 }
 
