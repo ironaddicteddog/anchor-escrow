@@ -22,9 +22,9 @@ import { assert } from "chai";
 describe("anchor-escrow", () => {
   // Use Mainnet-fork for testing
   const commitment: Commitment = "processed"; // processed, confirmed, finalized
-  const connection = new Connection("http://localhost:8899", {
+  const connection = new Connection("http://127.0.0.1:8899", {
     commitment,
-    wsEndpoint: "ws://localhost:8900/",
+    wsEndpoint: "ws://127.0.0.1:8900/",
   });
   // const connection = new Connection("https://api.devnet.solana.com", {
   //   commitment,
@@ -60,21 +60,20 @@ describe("anchor-escrow", () => {
 
   // Determined Seeds
   const stateSeed = "state";
-  const authoritySeed = "authority";
 
   // Random Seed
   const randomSeed: anchor.BN = new anchor.BN(Math.floor(Math.random() * 100000000));
 
   // Derive PDAs: escrowStateKey, vaultKey, vaultAuthorityKey
-  const escrowStateKey = PublicKey.findProgramAddressSync(
-    [Buffer.from(anchor.utils.bytes.utf8.encode(stateSeed)), randomSeed.toArrayLike(Buffer, "le", 8)],
+  const [escrowStateKey, bump] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from(anchor.utils.bytes.utf8.encode(stateSeed)),
+      randomSeed.toArrayLike(Buffer, "le", 8),
+      initializer.publicKey.toBytes(),
+    ],
     program.programId
-  )[0];
+  );
 
-  const vaultAuthorityKey = PublicKey.findProgramAddressSync(
-    [Buffer.from(authoritySeed, "utf-8")],
-    program.programId
-  )[0];
   let vaultKey = null as PublicKey;
 
   it("Initialize program state", async () => {
@@ -135,19 +134,19 @@ describe("anchor-escrow", () => {
   });
 
   it("Initialize escrow", async () => {
-    const _vaultKey = PublicKey.findProgramAddressSync(
-      [vaultAuthorityKey.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mintA.toBuffer()],
+    const [_vaultKey, _] = PublicKey.findProgramAddressSync(
+      [escrowStateKey.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mintA.toBuffer()],
       ASSOCIATED_TOKEN_PROGRAM_ID
-    )[0];
+    );
     vaultKey = _vaultKey;
 
     const result = await program.methods
-      .initialize(randomSeed, new anchor.BN(initializerAmount), new anchor.BN(takerAmount))
+      .initialize(randomSeed, bump, new anchor.BN(initializerAmount), new anchor.BN(takerAmount))
       .accounts({
         initializer: initializer.publicKey,
-        vaultAuthority: vaultAuthorityKey,
         vault: vaultKey,
-        mint: mintA,
+        mintA: mintA,
+        mintB: mintB,
         initializerDepositTokenAccount: initializerTokenAccountA,
         initializerReceiveTokenAccount: initializerTokenAccountB,
         escrowState: escrowStateKey,
@@ -156,21 +155,21 @@ describe("anchor-escrow", () => {
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .signers([initializer])
-      .rpc();
+      .rpc({ skipPreflight: true });
     console.log(`https://solana.fm/tx/${result}?cluster=http%253A%252F%252Flocalhost%253A8899%252F`);
 
     let fetchedVault = await getAccount(connection, vaultKey);
     let fetchedEscrowState = await program.account.escrowState.fetch(escrowStateKey);
 
     // Check that the new owner is the PDA.
-    assert.ok(fetchedVault.owner.equals(vaultAuthorityKey));
+    assert.ok(fetchedVault.owner.equals(escrowStateKey));
 
     // Check that the values in the escrow account match what we expect.
     assert.ok(fetchedEscrowState.initializerKey.equals(initializer.publicKey));
     assert.ok(fetchedEscrowState.initializerAmount.toNumber() == initializerAmount);
     assert.ok(fetchedEscrowState.takerAmount.toNumber() == takerAmount);
-    assert.ok(fetchedEscrowState.initializerDepositTokenAccount.equals(initializerTokenAccountA));
-    assert.ok(fetchedEscrowState.initializerReceiveTokenAccount.equals(initializerTokenAccountB));
+    assert.ok(fetchedEscrowState.mintA.equals(mintA));
+    assert.ok(fetchedEscrowState.mintB.equals(mintB));
   });
 
   it("Exchange escrow state", async () => {
@@ -178,20 +177,20 @@ describe("anchor-escrow", () => {
       .exchange()
       .accounts({
         taker: taker.publicKey,
-        initializerDepositTokenMint: mintA,
-        takerDepositTokenMint: mintB,
+        mintA: mintA,
+        mintB: mintB,
         takerDepositTokenAccount: takerTokenAccountB,
         takerReceiveTokenAccount: takerTokenAccountA,
-        initializerDepositTokenAccount: initializerTokenAccountA,
         initializerReceiveTokenAccount: initializerTokenAccountB,
         initializer: initializer.publicKey,
         escrowState: escrowStateKey,
         vault: vaultKey,
-        vaultAuthority: vaultAuthorityKey,
         tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: anchor.web3.SystemProgram.programId,
       })
       .signers([taker])
-      .rpc();
+      .rpc({ skipPreflight: true });
     console.log(`https://solana.fm/tx/${result}?cluster=http%253A%252F%252Flocalhost%253A8899%252F`);
 
     let fetchedInitializerTokenAccountA = await getAccount(connection, initializerTokenAccountA);
@@ -210,18 +209,19 @@ describe("anchor-escrow", () => {
     await mintTo(connection, initializer, mintA, initializerTokenAccountA, mintAuthority, initializerAmount);
 
     const initializedTx = await program.methods
-      .initialize(randomSeed, new anchor.BN(initializerAmount), new anchor.BN(takerAmount))
+      .initialize(randomSeed, bump, new anchor.BN(initializerAmount), new anchor.BN(takerAmount))
       .accounts({
         initializer: initializer.publicKey,
-        vaultAuthority: vaultAuthorityKey,
         vault: vaultKey,
-        mint: mintA,
+        mintA: mintA,
+        mintB: mintB,
         initializerDepositTokenAccount: initializerTokenAccountA,
         initializerReceiveTokenAccount: initializerTokenAccountB,
         escrowState: escrowStateKey,
         systemProgram: anchor.web3.SystemProgram.programId,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       })
       .signers([initializer])
       .rpc();
@@ -232,12 +232,12 @@ describe("anchor-escrow", () => {
       .cancel()
       .accounts({
         initializer: initializer.publicKey,
-        mint: mintA,
+        mintA: mintA,
         initializerDepositTokenAccount: initializerTokenAccountA,
         vault: vaultKey,
-        vaultAuthority: vaultAuthorityKey,
         escrowState: escrowStateKey,
         tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       })
       .signers([initializer])
       .rpc();
