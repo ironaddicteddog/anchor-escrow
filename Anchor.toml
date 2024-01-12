@@ -1,12 +1,16 @@
 [programs.localnet]
-anchor_escrow = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+anchor_escrow = "D3B39yETxmG29V3QPPNsdEzxQyonU5tjiwEr3svnMoRt"
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "https://solana-devnet.g.alchemy.com/v2/IE0aP3Ge9OImn-QN6tBCxrkQuWUiH5rP"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+
+[toolchain]
+anchor_version = "0.29.0" # `anchor-cli` version to use
+solana_version = "1.17.0" # Solana version to use
