@@ -1,14 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { IDL } from "../target/types/anchor_escrow";
-import {
-  PublicKey,
-  SystemProgram,
-  Connection,
-  Commitment,
-  TransactionMessage,
-  VersionedTransaction,
-} from "@solana/web3.js";
+import { PublicKey, SystemProgram, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -20,27 +13,16 @@ import {
 import { assert } from "chai";
 
 describe("anchor-escrow", () => {
-  // Use Mainnet-fork for testing
-  const commitment: Commitment = "processed"; // processed, confirmed, finalized
-  const connection = new Connection("http://localhost:8899", {
-    commitment,
-    wsEndpoint: "ws://localhost:8900/",
-  });
-  // const connection = new Connection("https://api.devnet.solana.com", {
-  //   commitment,
-  //   wsEndpoint: "wss://api.devnet.solana.com/",
-  // });
+  const wallet = anchor.AnchorProvider.env().wallet;
+  // Work-around: Get wallet private key
+  const walletKey = NodeWallet.local().payer;
 
-  const options = anchor.AnchorProvider.defaultOptions();
-  const wallet = NodeWallet.local();
-  const provider = new anchor.AnchorProvider(connection, wallet, options);
-
-  anchor.setProvider(provider);
+  anchor.setProvider(anchor.AnchorProvider.env());
 
   // CAUTION: if you are intended to use the program that is deployed by yourself,
   // please make sure that the programIDs are consistent
-  const programId = new PublicKey("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
-  const program = new anchor.Program(IDL, programId, provider);
+  const programId = new PublicKey("D3B39yETxmG29V3QPPNsdEzxQyonU5tjiwEr3svnMoRt");
+  const program = new anchor.Program(IDL, programId, anchor.getProvider());
 
   let mintA = null as PublicKey;
   let mintB = null as PublicKey;
@@ -78,16 +60,27 @@ describe("anchor-escrow", () => {
   let vaultKey = null as PublicKey;
 
   it("Initialize program state", async () => {
-    // 1. Airdrop 1 SOL to payer
-    const signature = await provider.connection.requestAirdrop(payer.publicKey, 1000000000);
-    const latestBlockhash = await connection.getLatestBlockhash();
-    await provider.connection.confirmTransaction(
-      {
-        signature,
-        ...latestBlockhash,
-      },
-      commitment
-    );
+    // 1. Send 0.03 SOL from signer to payer.
+    // Please make sure that there is at least 0.03 Devnet SOL in your signer wallet.
+    // Claim Devnet SOL here: https://faucet.solana.com
+
+    const latestBlockhash = await anchor.getProvider().connection.getLatestBlockhash();
+
+    const airdropMessageV0 = new TransactionMessage({
+      payerKey: wallet.publicKey,
+      recentBlockhash: latestBlockhash.blockhash,
+      instructions: [
+        SystemProgram.transfer({
+          fromPubkey: wallet.publicKey,
+          toPubkey: payer.publicKey,
+          lamports: 0.03 * 10 ** 9, // Convert SOL to lamports (1 SOL = 10^9 lamports)
+        }),
+      ],
+    }).compileToV0Message();
+    const airdropTx = new VersionedTransaction(airdropMessageV0);
+    airdropTx.sign([walletKey]);
+
+    await anchor.getProvider().connection.sendTransaction(airdropTx);
 
     // 2. Fund main roles: initializer and taker
     const fundingTxMessageV0 = new TransactionMessage({
@@ -97,12 +90,12 @@ describe("anchor-escrow", () => {
         SystemProgram.transfer({
           fromPubkey: payer.publicKey,
           toPubkey: initializer.publicKey,
-          lamports: 100000000,
+          lamports: 10000000, // 0.01 SOL
         }),
         SystemProgram.transfer({
           fromPubkey: payer.publicKey,
           toPubkey: taker.publicKey,
-          lamports: 100000000,
+          lamports: 10000000, // 0.01 SOL
         }),
       ],
     }).compileToV0Message();
@@ -110,25 +103,42 @@ describe("anchor-escrow", () => {
     fundingTx.sign([payer]);
 
     // console.log(Buffer.from(fundingTx.serialize()).toString("base64"));
-    const result = await connection.sendRawTransaction(fundingTx.serialize());
-    console.log(`https://solana.fm/tx/${result}?cluster=http%253A%252F%252Flocalhost%253A8899%252F`);
+    const result = await anchor.getProvider().connection.sendRawTransaction(fundingTx.serialize());
+    console.log(`https://solana.fm/tx/${result}?cluster=devnet-solana`);
 
     // 3. Create dummy token mints: mintA and mintB
-    mintA = await createMint(connection, payer, mintAuthority.publicKey, null, 0);
-    mintB = await createMint(provider.connection, payer, mintAuthority.publicKey, null, 0);
+    mintA = await createMint(anchor.getProvider().connection, payer, mintAuthority.publicKey, null, 0);
+    mintB = await createMint(anchor.getProvider().connection, payer, mintAuthority.publicKey, null, 0);
 
     // 4. Create token accounts for dummy token mints and both main roles
-    initializerTokenAccountA = await createAccount(connection, initializer, mintA, initializer.publicKey);
-    initializerTokenAccountB = await createAccount(connection, initializer, mintB, initializer.publicKey);
-    takerTokenAccountA = await createAccount(connection, taker, mintA, taker.publicKey);
-    takerTokenAccountB = await createAccount(connection, taker, mintB, taker.publicKey);
+    initializerTokenAccountA = await createAccount(
+      anchor.getProvider().connection,
+      initializer,
+      mintA,
+      initializer.publicKey
+    );
+    initializerTokenAccountB = await createAccount(
+      anchor.getProvider().connection,
+      initializer,
+      mintB,
+      initializer.publicKey
+    );
+    takerTokenAccountA = await createAccount(anchor.getProvider().connection, taker, mintA, taker.publicKey);
+    takerTokenAccountB = await createAccount(anchor.getProvider().connection, taker, mintB, taker.publicKey);
 
     // 5. Mint dummy tokens to initializerTokenAccountA and takerTokenAccountB
-    await mintTo(connection, initializer, mintA, initializerTokenAccountA, mintAuthority, initializerAmount);
-    await mintTo(connection, taker, mintB, takerTokenAccountB, mintAuthority, takerAmount);
+    await mintTo(
+      anchor.getProvider().connection,
+      initializer,
+      mintA,
+      initializerTokenAccountA,
+      mintAuthority,
+      initializerAmount
+    );
+    await mintTo(anchor.getProvider().connection, taker, mintB, takerTokenAccountB, mintAuthority, takerAmount);
 
-    const fetchedInitializerTokenAccountA = await getAccount(connection, initializerTokenAccountA);
-    const fetchedTakerTokenAccountB = await getAccount(connection, takerTokenAccountB);
+    const fetchedInitializerTokenAccountA = await getAccount(anchor.getProvider().connection, initializerTokenAccountA);
+    const fetchedTakerTokenAccountB = await getAccount(anchor.getProvider().connection, takerTokenAccountB);
 
     assert.ok(Number(fetchedInitializerTokenAccountA.amount) == initializerAmount);
     assert.ok(Number(fetchedTakerTokenAccountB.amount) == takerAmount);
@@ -157,9 +167,9 @@ describe("anchor-escrow", () => {
       })
       .signers([initializer])
       .rpc();
-    console.log(`https://solana.fm/tx/${result}?cluster=http%253A%252F%252Flocalhost%253A8899%252F`);
+    console.log(`https://solana.fm/tx/${result}?cluster=devnet-solana`);
 
-    let fetchedVault = await getAccount(connection, vaultKey);
+    let fetchedVault = await getAccount(anchor.getProvider().connection, vaultKey);
     let fetchedEscrowState = await program.account.escrowState.fetch(escrowStateKey);
 
     // Check that the new owner is the PDA.
@@ -192,12 +202,12 @@ describe("anchor-escrow", () => {
       })
       .signers([taker])
       .rpc();
-    console.log(`https://solana.fm/tx/${result}?cluster=http%253A%252F%252Flocalhost%253A8899%252F`);
+    console.log(`https://solana.fm/tx/${result}?cluster=devnet-solana`);
 
-    let fetchedInitializerTokenAccountA = await getAccount(connection, initializerTokenAccountA);
-    let fetchedInitializerTokenAccountB = await getAccount(connection, initializerTokenAccountB);
-    let fetchedTakerTokenAccountA = await getAccount(connection, takerTokenAccountA);
-    let fetchedTakerTokenAccountB = await getAccount(connection, takerTokenAccountB);
+    let fetchedInitializerTokenAccountA = await getAccount(anchor.getProvider().connection, initializerTokenAccountA);
+    let fetchedInitializerTokenAccountB = await getAccount(anchor.getProvider().connection, initializerTokenAccountB);
+    let fetchedTakerTokenAccountA = await getAccount(anchor.getProvider().connection, takerTokenAccountA);
+    let fetchedTakerTokenAccountB = await getAccount(anchor.getProvider().connection, takerTokenAccountB);
 
     assert.ok(Number(fetchedTakerTokenAccountA.amount) == initializerAmount);
     assert.ok(Number(fetchedInitializerTokenAccountA.amount) == 0);
@@ -207,7 +217,14 @@ describe("anchor-escrow", () => {
 
   it("Initialize escrow and cancel escrow", async () => {
     // Put back tokens into initializer token A account.
-    await mintTo(connection, initializer, mintA, initializerTokenAccountA, mintAuthority, initializerAmount);
+    await mintTo(
+      anchor.getProvider().connection,
+      initializer,
+      mintA,
+      initializerTokenAccountA,
+      mintAuthority,
+      initializerAmount
+    );
 
     const initializedTx = await program.methods
       .initialize(randomSeed, new anchor.BN(initializerAmount), new anchor.BN(takerAmount))
@@ -225,7 +242,7 @@ describe("anchor-escrow", () => {
       })
       .signers([initializer])
       .rpc();
-    console.log(`https://solana.fm/tx/${initializedTx}?cluster=http%253A%252F%252Flocalhost%253A8899%252F`);
+    console.log(`https://solana.fm/tx/${initializedTx}?cluster=devnet-solana`);
 
     // Cancel the escrow.
     const canceledTX = await program.methods
@@ -241,10 +258,10 @@ describe("anchor-escrow", () => {
       })
       .signers([initializer])
       .rpc();
-    console.log(`https://solana.fm/tx/${canceledTX}?cluster=http%253A%252F%252Flocalhost%253A8899%252F`);
+    console.log(`https://solana.fm/tx/${canceledTX}?cluster=devnet-solana`);
 
     // Check the final owner should be the provider public key.
-    const fetchedInitializerTokenAccountA = await getAccount(connection, initializerTokenAccountA);
+    const fetchedInitializerTokenAccountA = await getAccount(anchor.getProvider().connection, initializerTokenAccountA);
 
     assert.ok(fetchedInitializerTokenAccountA.owner.equals(initializer.publicKey));
     // Check all the funds are still there.
