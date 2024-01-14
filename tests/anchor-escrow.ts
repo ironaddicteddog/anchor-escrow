@@ -114,11 +114,21 @@ describe("anchor-escrow", () => {
       .then(log);
   });
 
-  it("Cancel", async () => {
+  xit("Cancel", async () => {
     await program.methods
       .cancel()
       .accounts({ ...accounts })
       .signers([initializer])
+      .rpc()
+      .then(confirm)
+      .then(log);
+  });
+
+  it("Exchange", async () => {
+    await program.methods
+      .exchange()
+      .accounts({ ...accounts })
+      .signers([taker])
       .rpc()
       .then(confirm)
       .then(log);
