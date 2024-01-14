@@ -113,4 +113,14 @@ describe("anchor-escrow", () => {
       .then(confirm)
       .then(log);
   });
+
+  it("Cancel", async () => {
+    await program.methods
+      .cancel()
+      .accounts({ ...accounts })
+      .signers([initializer])
+      .rpc()
+      .then(confirm)
+      .then(log);
+  });
 });

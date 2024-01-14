@@ -6,7 +6,7 @@ use anchor_spl::{
 };
 
 #[derive(Accounts)]
-#[instruction(seed: u64)]
+#[instruction(seed: u64, initializer_amount: u64)]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub initializer: Signer<'info>,
@@ -14,6 +14,7 @@ pub struct Initialize<'info> {
     pub mint_b: Account<'info, Mint>,
     #[account(
         mut,
+        constraint = initializer_ata_a.amount >= initializer_amount,
         associated_token::mint = mint_a,
         associated_token::authority = initializer
     )]
@@ -36,7 +37,6 @@ pub struct Initialize<'info> {
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
 }
 
 impl<'info> Initialize<'info> {
@@ -77,43 +77,3 @@ impl<'info> Initialize<'info> {
         CpiContext::new(self.token_program.to_account_info(), cpi_accounts)
     }
 }
-
-// #[instruction(seed: u64,)]
-// pub struct Initialize1<'info> {
-//     /// CHECK: This is not dangerous because we don't read or write from this account
-//     #[account(mut)]
-//     pub initializer: Signer<'info>,
-//     pub mint_a: Account<'info, Mint>,
-//     pub mint_b: Account<'info, Mint>,
-//     #[account(
-//         init_if_needed,
-//         payer = initializer,
-//         associated_token::mint = mint_a,
-//         associated_token::authority = escrow_state
-//     )]
-//     pub vault: Box<Account<'info, TokenAccount>>,
-//     #[account(mut)]
-//     pub initializer_deposit_token_account: Account<'info, TokenAccount>,
-//     #[account(
-//         init_if_needed,
-//         payer = initializer,
-//         associated_token::mint = mint_b,
-//         associated_token::authority = initializer
-//     )]
-//     pub initializer_receive_token_account: Account<'info, TokenAccount>,
-//     #[account(
-//         init,
-//         seeds = [b"state".as_ref(), &random_seed.to_le_bytes(),initializer.key().as_ref()],
-//         bump ,
-//         payer = initializer,
-//         space = Escrow::INIT_SPACE
-//     )]
-//     pub escrow_state: Box<Account<'info, Escrow>>,
-//     /// CHECK: This is not dangerous because we don't read or write from this account
-//     pub system_program: Program<'info, System>,
-//     pub rent: Sysvar<'info, Rent>,
-//     /// CHECK: This is not dangerous because we don't read or write from this account
-//     pub token_program: Program<'info, Token>,
-//     /// CHECK: This is not dangerous because we don't read or write from this account
-//     pub associated_token_program: Program<'info, AssociatedToken>,
-// }
