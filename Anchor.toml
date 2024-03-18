@@ -1,5 +1,5 @@
 [programs.localnet]
-anchor_escrow = "D3B39yETxmG29V3QPPNsdEzxQyonU5tjiwEr3svnMoRt"
+anchor_escrow = "AHnWUmyXfyRqtN3AwoRxMoyVKskyF9cS59YE2ZbqB8x6"
 
 [registry]
 url = "https://anchor.projectserum.com"
@@ -13,4 +13,4 @@ test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 
 [toolchain]
 anchor_version = "0.29.0" # `anchor-cli` version to use
-solana_version = "1.17.0" # Solana version to use
+solana_version = "1.18.1" # Solana version to use
