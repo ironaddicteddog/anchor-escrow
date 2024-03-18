@@ -1,6 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { AnchorEscrow } from "../target/types/anchor_escrow";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   MINT_SIZE,
@@ -132,5 +132,29 @@ describe("anchor-escrow", () => {
       .rpc()
       .then(confirm)
       .then(log);
+
+    // For Degugging Purpose
+
+    // const latestBlockhash = await anchor
+    //   .getProvider()
+    //   .connection.getLatestBlockhash();
+
+    // const ix = await program.methods
+    //   .exchange()
+    //   .accounts({ ...accounts })
+    //   .signers([taker])
+    //   .instruction()
+
+    // const msg = new TransactionMessage({
+    //   payerKey: provider.publicKey,
+    //   recentBlockhash: latestBlockhash.blockhash,
+    //   instructions: [ix],
+    // }).compileToV0Message();
+
+    // const tx = new VersionedTransaction(msg);
+    // tx.sign([taker]);
+
+    // console.log(Buffer.from(tx.serialize()).toString("base64"));
+    // await provider.sendAndConfirm(tx).then(log);
   });
 });
