@@ -80,26 +80,9 @@ describe("anchor-escrow", () => {
           lamports: 0.01 * LAMPORTS_PER_SOL,
         })
       ),
-      ...[mintA, mintB].map((m) =>
-        SystemProgram.createAccount({
-          fromPubkey: provider.publicKey,
-          newAccountPubkey: m.publicKey,
-          lamports,
-          space: MINT_SIZE,
-          programId: TOKEN_PROGRAM_ID,
-        })
-      ),
-      ...[
-        [mintA.publicKey, initializer.publicKey, initializerAtaA],
-        [mintB.publicKey, taker.publicKey, takerAtaB],
-      ].flatMap((x) => [
-        createInitializeMint2Instruction(x[0], 6, x[1], null),
-        createAssociatedTokenAccountIdempotentInstruction(provider.publicKey, x[2], x[1], x[0]),
-        createMintToInstruction(x[0], x[2], x[1], 1e9),
-      ]),
     ];
 
-    await provider.sendAndConfirm(tx, [mintA, mintB, initializer, taker]).then(log);
+    await provider.sendAndConfirm(tx, [initializer, taker]).then(log);
   });
 
   it("Initialize", async () => {
