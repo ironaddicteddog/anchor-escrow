@@ -23,8 +23,8 @@
   },
   "homepage": "https://github.com/ironaddicteddog/anchor-escrow#readme",
   "dependencies": {
-    "@coral-xyz/anchor": "^0.27.0",
-    "@solana/spl-token": "^0.3.7"
+    "@coral-xyz/anchor": "0.30.1",
+    "@solana/spl-token": "^0.4.8"
   },
   "devDependencies": {
     "@types/chai": "^4.3.4",
@@ -32,6 +32,6 @@
     "chai": "^4.3.4",
     "mocha": "^9.0.3",
     "ts-mocha": "^10.0.0",
-    "typescript": "^4.3.5"
+    "typescript": "^5.5.4"
   }
 }
