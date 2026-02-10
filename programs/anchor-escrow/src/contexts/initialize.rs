@@ -21,7 +21,7 @@ pub struct Initialize<'info> {
     )]
     pub initializer_ata_a: Account<'info, TokenAccount>,
     #[account(
-        init_if_needed,
+        init,
         payer = initializer,
         space = Escrow::INIT_SPACE,
         seeds = [b"state".as_ref(), &seed.to_le_bytes()],
@@ -29,7 +29,7 @@ pub struct Initialize<'info> {
     )]
     pub escrow: Account<'info, Escrow>,
     #[account(
-        init_if_needed,
+        init,
         payer = initializer,
         associated_token::mint = mint_a,
         associated_token::authority = escrow

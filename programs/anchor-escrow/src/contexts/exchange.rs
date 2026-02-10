@@ -38,6 +38,7 @@ pub struct Exchange<'info> {
     pub initializer_ata_b: Box<Account<'info, TokenAccount>>,
     #[account(
         mut,
+        has_one = mint_a,
         has_one = mint_b,
         constraint = taker_ata_b.amount >= escrow.taker_amount,
         close = initializer,
