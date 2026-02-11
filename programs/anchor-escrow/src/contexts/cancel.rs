@@ -24,7 +24,7 @@ pub struct Cancel<'info> {
         has_one = initializer,
         has_one = mint_a,
         close = initializer,
-        seeds=[b"state", escrow.seed.to_le_bytes().as_ref()],
+        seeds=[b"state", initializer.key().as_ref(), escrow.seed.to_le_bytes().as_ref()],
         bump = escrow.bump,
     )]
     escrow: Account<'info, Escrow>,
