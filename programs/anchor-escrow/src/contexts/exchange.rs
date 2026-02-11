@@ -38,10 +38,12 @@ pub struct Exchange<'info> {
     pub initializer_ata_b: Box<Account<'info, TokenAccount>>,
     #[account(
         mut,
+        has_one = initializer,
+        has_one = mint_a,
         has_one = mint_b,
         constraint = taker_ata_b.amount >= escrow.taker_amount,
         close = initializer,
-        seeds=[b"state", escrow.seed.to_le_bytes().as_ref()],
+        seeds=[b"state", initializer.key().as_ref(), escrow.seed.to_le_bytes().as_ref()],
         bump = escrow.bump,
     )]
     pub escrow: Box<Account<'info, Escrow>>,
