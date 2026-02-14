@@ -38,6 +38,11 @@ pub struct Exchange<'info> {
     pub initializer_ata_b: Box<Account<'info, TokenAccount>>,
     #[account(
         mut,
+        // Critical: bind the passed-in `initializer` and `mint_a` to the escrow state.
+        // Without this, a taker can spoof `initializer` to redirect the taker payment to themselves
+        // and still withdraw `mint_a` from the vault.
+        has_one = initializer,
+        has_one = mint_a,
         has_one = mint_b,
         constraint = taker_ata_b.amount >= escrow.taker_amount,
         close = initializer,

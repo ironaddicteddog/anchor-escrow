@@ -124,6 +124,31 @@ describe("anchor-escrow", () => {
       .then(log);
   });
 
+  it("Exploit attempt: spoofed initializer should be rejected", async () => {
+    // Before the fix, a taker could pass `initializer = taker` and `initializerAtaB = takerAtaB`.
+    // That makes the taker payment a no-op (paying themselves), while still withdrawing `mintA`
+    // from the vault — stealing the initializer's deposit.
+    const spoofedAccounts = {
+      ...accounts,
+      initializer: taker.publicKey,
+      initializerAtaB: takerAtaB,
+    };
+
+    let threw = false;
+    try {
+      await program.methods.exchange().accounts({ ...spoofedAccounts }).signers([taker]).rpc();
+    } catch (e) {
+      threw = true;
+      // Anchor typically throws ConstraintHasOne on mismatch; we don't assert exact text to keep
+      // the test stable across versions.
+      // console.log("expected failure", e);
+    }
+
+    if (!threw) {
+      throw new Error("Exploit succeeded: escrow exchange accepted a spoofed initializer");
+    }
+  });
+
   it("Exchange", async () => {
     await program.methods
       .exchange()
